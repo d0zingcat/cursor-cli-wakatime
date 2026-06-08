@@ -7,8 +7,9 @@
   },
   "scripts": {
     "prebuild": "node scripts/generate-version.js",
-    "build": "npm run prebuild && esbuild src/hook.ts --bundle --platform=node --outfile=dist/hook.js && esbuild src/cli.ts --bundle --platform=node --outfile=dist/cli.js",
+    "build": "npm run prebuild && esbuild src/hook.ts --bundle --platform=node --outfile=dist/hook.js && esbuild src/cli.ts --bundle --platform=node --outfile=dist/cli.js && esbuild src/heartbeat.ts --bundle --platform=node --outfile=dist/heartbeat.js",
     "prepare": "npm run build",
+    "test": "npm run build && node --test test/*.test.js",
     "watch": "npm run prebuild && tsc --watch"
   },
   "files": [

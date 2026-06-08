@@ -2,7 +2,14 @@
 
 Track AI coding activity from **Cursor CLI** terminal agent sessions on your [WakaTime](https://wakatime.com) dashboard.
 
-This plugin hooks into cursor-cli lifecycle events and calls `wakatime-cli --sync-ai-activity` to sync AI-generated code metrics, prompt time, and related stats.
+This plugin hooks into cursor-cli lifecycle events and sends WakaTime heartbeats for Cursor CLI agent activity.
+
+It uses a hybrid tracking strategy:
+
+- Runs `wakatime-cli --sync-ai-activity` to collect rich AI metrics when WakaTime CLI can parse Cursor transcripts.
+- Sends a direct `ai coding` heartbeat for the current project, or for the edited file when Cursor exposes one in the hook payload.
+
+The direct heartbeat is the reliable fallback path: even when WakaTime CLI cannot parse the current Cursor CLI transcript format yet, your WakaTime/Wakapi dashboard still updates for the active project.
 
 It does **not** replace the official [WakaTime Cursor extension](https://wakatime.com/cursor) for IDE typing time. Use both if you work in the IDE and the terminal.
 
@@ -63,7 +70,13 @@ agent -p -f "Reply OK"
 find ~/.cursor/projects -name "*.wakatime" -newermt "1 min ago"
 ```
 
-You should see a `*.jsonl.wakatime` file next to the session transcript.
+You should see a `*.jsonl.wakatime` file next to the session transcript, plus recent `cursor-cli-wakatime` entries in `~/.wakatime/wakatime.log`.
+
+For the direct fallback heartbeat, look for a line like:
+
+```text
+Sending direct heartbeat: ... --entity <workspace-or-file> --category "ai coding" ... --sync-ai-disabled
+```
 
 ### Upgrade
 
@@ -86,7 +99,7 @@ cursor-cli-wakatime install
 | `cursor-cli-wakatime uninstall` | Remove only this package's hook entries |
 | `cursor-cli-wakatime status` | Show hook, CLI, and config paths |
 | `cursor-cli-wakatime doctor` | Verify installation health |
-| `cursor-cli-wakatime test` | Run one `sync-ai-activity` for the current directory |
+| `cursor-cli-wakatime test` | Run one activity sync for the current directory |
 
 ## How it works
 
@@ -103,6 +116,9 @@ On each event, the hook script:
 2. Rate-limits to one sync per conversation per 60 seconds
 3. Ensures `wakatime-cli` is installed under `~/.wakatime/`
 4. Runs `wakatime-cli --sync-ai-activity --project-folder <workspace>`
+5. Sends a direct `ai coding` heartbeat for the active project or edited file
+
+The direct heartbeat uses `--sync-ai-disabled` so it does not recursively trigger AI transcript parsing, and `--heartbeat-rate-limit-seconds 0` because this package already applies its own per-conversation rate limit.
 
 When `transcript_path` is null (common in CLI), the plugin resolves transcripts under:
 
@@ -156,7 +172,7 @@ grep error ~/.wakatime/wakatime.log | grep -v backoff
 - Cursor plugins have no post-install script ([plugin manifest](https://cursor.com/docs/reference/plugins) has no `postInstall` lifecycle)
 - cursor-cli hook coverage is incomplete compared to the IDE
 - Cloud agents do not load user-level plugin hooks the same way as local CLI
-- AI metrics depend on wakatime-cli parsing Cursor transcript format
+- Rich AI metrics depend on wakatime-cli parsing Cursor transcript format; direct project/file heartbeats are still sent when parsing does not produce activity
 
 ## License
 

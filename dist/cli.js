@@ -357,25 +357,25 @@ var require_utils = __commonJS({
       }
       mkdirSync3(folder);
     };
-    Utils.prototype.writeFileTo = function(path6, content, overwrite, attr) {
+    Utils.prototype.writeFileTo = function(path7, content, overwrite, attr) {
       const self = this;
-      if (self.fs.existsSync(path6)) {
+      if (self.fs.existsSync(path7)) {
         if (!overwrite) return false;
-        var stat = self.fs.statSync(path6);
+        var stat = self.fs.statSync(path7);
         if (stat.isDirectory()) {
           return false;
         }
       }
-      var folder = pth.dirname(path6);
+      var folder = pth.dirname(path7);
       if (!self.fs.existsSync(folder)) {
         self.makeDir(folder);
       }
       var fd;
       try {
-        fd = self.fs.openSync(path6, "w", 438);
+        fd = self.fs.openSync(path7, "w", 438);
       } catch (e) {
-        self.fs.chmodSync(path6, 438);
-        fd = self.fs.openSync(path6, "w", 438);
+        self.fs.chmodSync(path7, 438);
+        fd = self.fs.openSync(path7, "w", 438);
       }
       if (fd) {
         try {
@@ -384,31 +384,31 @@ var require_utils = __commonJS({
           self.fs.closeSync(fd);
         }
       }
-      self.fs.chmodSync(path6, attr || 438);
+      self.fs.chmodSync(path7, attr || 438);
       return true;
     };
-    Utils.prototype.writeFileToAsync = function(path6, content, overwrite, attr, callback) {
+    Utils.prototype.writeFileToAsync = function(path7, content, overwrite, attr, callback) {
       if (typeof attr === "function") {
         callback = attr;
         attr = void 0;
       }
       const self = this;
-      self.fs.exists(path6, function(exist) {
+      self.fs.exists(path7, function(exist) {
         if (exist && !overwrite) return callback(false);
-        self.fs.stat(path6, function(err, stat) {
+        self.fs.stat(path7, function(err, stat) {
           if (exist && stat.isDirectory()) {
             return callback(false);
           }
-          var folder = pth.dirname(path6);
+          var folder = pth.dirname(path7);
           self.fs.exists(folder, function(exists) {
             if (!exists) self.makeDir(folder);
-            self.fs.open(path6, "w", 438, function(err2, fd) {
+            self.fs.open(path7, "w", 438, function(err2, fd) {
               if (err2) {
-                self.fs.chmod(path6, 438, function() {
-                  self.fs.open(path6, "w", 438, function(err3, fd2) {
+                self.fs.chmod(path7, 438, function() {
+                  self.fs.open(path7, "w", 438, function(err3, fd2) {
                     self.fs.write(fd2, content, 0, content.length, 0, function() {
                       self.fs.close(fd2, function() {
-                        self.fs.chmod(path6, attr || 438, function() {
+                        self.fs.chmod(path7, attr || 438, function() {
                           callback(true);
                         });
                       });
@@ -418,13 +418,13 @@ var require_utils = __commonJS({
               } else if (fd) {
                 self.fs.write(fd, content, 0, content.length, 0, function() {
                   self.fs.close(fd, function() {
-                    self.fs.chmod(path6, attr || 438, function() {
+                    self.fs.chmod(path7, attr || 438, function() {
                       callback(true);
                     });
                   });
                 });
               } else {
-                self.fs.chmod(path6, attr || 438, function() {
+                self.fs.chmod(path7, attr || 438, function() {
                   callback(true);
                 });
               }
@@ -433,7 +433,7 @@ var require_utils = __commonJS({
         });
       });
     };
-    Utils.prototype.findFiles = function(path6) {
+    Utils.prototype.findFiles = function(path7) {
       const self = this;
       function findSync(dir, pattern, recursive) {
         if (typeof pattern === "boolean") {
@@ -442,16 +442,16 @@ var require_utils = __commonJS({
         }
         let files = [];
         self.fs.readdirSync(dir).forEach(function(file) {
-          const path7 = pth.join(dir, file);
-          const stat = self.fs.statSync(path7);
-          if (!pattern || pattern.test(path7)) {
-            files.push(pth.normalize(path7) + (stat.isDirectory() ? self.sep : ""));
+          const path8 = pth.join(dir, file);
+          const stat = self.fs.statSync(path8);
+          if (!pattern || pattern.test(path8)) {
+            files.push(pth.normalize(path8) + (stat.isDirectory() ? self.sep : ""));
           }
-          if (stat.isDirectory() && recursive) files = files.concat(findSync(path7, pattern, recursive));
+          if (stat.isDirectory() && recursive) files = files.concat(findSync(path8, pattern, recursive));
         });
         return files;
       }
-      return findSync(path6, void 0, true);
+      return findSync(path7, void 0, true);
     };
     Utils.prototype.findFilesAsync = function(dir, cb) {
       const self = this;
@@ -506,14 +506,14 @@ var require_utils = __commonJS({
           return "UNSUPPORTED (" + method + ")";
       }
     };
-    Utils.canonical = function(path6) {
-      if (!path6) return "";
-      const safeSuffix = pth.posix.normalize("/" + path6.split("\\").join("/"));
+    Utils.canonical = function(path7) {
+      if (!path7) return "";
+      const safeSuffix = pth.posix.normalize("/" + path7.split("\\").join("/"));
       return pth.join(".", safeSuffix);
     };
-    Utils.zipnamefix = function(path6) {
-      if (!path6) return "";
-      const safeSuffix = pth.posix.normalize("/" + path6.split("\\").join("/"));
+    Utils.zipnamefix = function(path7) {
+      if (!path7) return "";
+      const safeSuffix = pth.posix.normalize("/" + path7.split("\\").join("/"));
       return pth.posix.join(".", safeSuffix);
     };
     Utils.findLast = function(arr, callback) {
@@ -530,9 +530,9 @@ var require_utils = __commonJS({
       prefix = pth.resolve(pth.normalize(prefix));
       var parts = name.split("/");
       for (var i = 0, l = parts.length; i < l; i++) {
-        var path6 = pth.normalize(pth.join(prefix, parts.slice(i, l).join(pth.sep)));
-        if (path6.indexOf(prefix) === 0) {
-          return path6;
+        var path7 = pth.normalize(pth.join(prefix, parts.slice(i, l).join(pth.sep)));
+        if (path7.indexOf(prefix) === 0) {
+          return path7;
         }
       }
       return pth.normalize(pth.join(prefix, pth.basename(name)));
@@ -572,8 +572,8 @@ var require_utils = __commonJS({
 var require_fattr = __commonJS({
   "node_modules/adm-zip/util/fattr.js"(exports2, module2) {
     var pth = require("path");
-    module2.exports = function(path6, { fs: fs6 }) {
-      var _path = path6 || "", _obj = newAttr(), _stat = null;
+    module2.exports = function(path7, { fs: fs6 }) {
+      var _path = path7 || "", _obj = newAttr(), _stat = null;
       function newAttr() {
         return {
           directory: false,
@@ -1960,8 +1960,8 @@ var require_adm_zip = __commonJS({
         return null;
       }
       function fixPath(zipPath) {
-        const { join: join5, normalize, sep } = pth.posix;
-        return join5(".", normalize(sep + zipPath.split("\\").join(sep) + sep));
+        const { join: join6, normalize: normalize2, sep } = pth.posix;
+        return join6(".", normalize2(sep + zipPath.split("\\").join(sep) + sep));
       }
       function filenameFilter(filterfn) {
         if (filterfn instanceof RegExp) {
@@ -4804,7 +4804,7 @@ var require_index_min = __commonJS({
 var require_lib = __commonJS({
   "node_modules/which/lib/index.js"(exports2, module2) {
     var { isexe, sync: isexeSync } = require_index_min();
-    var { join: join5, delimiter, sep, posix } = require("path");
+    var { join: join6, delimiter, sep, posix } = require("path");
     var isWindows2 = process.platform === "win32";
     var rSlash = new RegExp(`[${posix.sep}${sep === posix.sep ? "" : sep}]`.replace(/(\\)/g, "\\$1"));
     var rRel = new RegExp(`^\\.${rSlash.source}`);
@@ -4833,7 +4833,7 @@ var require_lib = __commonJS({
     var getPathPart = (raw, cmd) => {
       const pathPart = /^".*"$/.test(raw) ? raw.slice(1, -1) : raw;
       const prefix = !pathPart && rRel.test(cmd) ? cmd.slice(0, 2) : "";
-      return prefix + join5(pathPart, cmd);
+      return prefix + join6(pathPart, cmd);
     };
     var which2 = async (cmd, opt = {}) => {
       const { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt);
@@ -4896,7 +4896,7 @@ __export(cli_exports, {
 });
 module.exports = __toCommonJS(cli_exports);
 var fs5 = __toESM(require("fs"));
-var path5 = __toESM(require("path"));
+var path6 = __toESM(require("path"));
 var import_child_process = require("child_process");
 
 // src/options.ts
@@ -4907,6 +4907,14 @@ var path2 = __toESM(require("path"));
 var fs = __toESM(require("fs"));
 var os = __toESM(require("os"));
 var path = __toESM(require("path"));
+function getProjectRoot(inp) {
+  if (inp?.workspace_roots?.[0]) return path.resolve(inp.workspace_roots[0]);
+  if (inp?.cwd) return path.resolve(inp.cwd);
+  return process.cwd();
+}
+function getCursorVersion(inp) {
+  return inp?.cursor_version?.trim() || "";
+}
 function isWindows() {
   return os.platform() === "win32";
 }
@@ -5579,14 +5587,119 @@ global.logger = logger;
 // src/version.ts
 var VERSION = "1.0.0";
 
+// src/heartbeat.ts
+var path5 = __toESM(require("path"));
+var WRITE_TOOL_NAMES = /* @__PURE__ */ new Set([
+  "applypatch",
+  "create",
+  "delete",
+  "edit",
+  "editfile",
+  "edit_file",
+  "multiedit",
+  "multi_edit",
+  "notebookedit",
+  "notebook_edit",
+  "strreplace",
+  "str_replace",
+  "write",
+  "writefile",
+  "write_file"
+]);
+var PATH_KEYS = [
+  "file",
+  "file_path",
+  "filePath",
+  "new_file_path",
+  "newFilePath",
+  "old_file_path",
+  "oldFilePath",
+  "path",
+  "target_file",
+  "targetFile",
+  "uri"
+];
+function buildSyncAIActivityArgs(params) {
+  const projectFolder = params.input ? getProjectRoot(params.input) : void 0;
+  const cursorVersion = getCursorVersion(params.input);
+  const args = ["--sync-ai-activity", "--plugin", pluginName(cursorVersion, params.pluginVersion)];
+  if (projectFolder) {
+    args.push("--project-folder", projectFolder);
+  }
+  return args;
+}
+function buildDirectHeartbeatArgs(params) {
+  if (!params.input) return [];
+  const projectFolder = getProjectRoot(params.input);
+  const filePath = extractEditedFilePath(params.input, projectFolder);
+  const cursorVersion = getCursorVersion(params.input);
+  const args = [
+    "--entity",
+    filePath ?? projectFolder,
+    "--entity-type",
+    filePath ? "file" : "app",
+    "--category",
+    "ai coding",
+    "--plugin",
+    pluginName(cursorVersion, params.pluginVersion),
+    "--project-folder",
+    projectFolder
+  ];
+  if (!filePath) {
+    args.push("--project", path5.basename(projectFolder));
+  }
+  args.push("--heartbeat-rate-limit-seconds", "0", "--sync-ai-disabled");
+  if (filePath && isWriteEvent(params.input)) {
+    args.push("--write");
+  }
+  return args;
+}
+function pluginName(cursorVersion, pluginVersion) {
+  return `cursor-cli/${cursorVersion} cursor-cli-wakatime/${pluginVersion}`;
+}
+function extractEditedFilePath(input, projectFolder) {
+  if (!shouldExtractFilePath(input)) return;
+  const values = [...extractPathValues(input), ...extractPathValues(input.tool_input)];
+  const filePath = values.find((value) => value.trim());
+  if (!filePath) return;
+  return path5.isAbsolute(filePath) ? path5.normalize(filePath) : path5.normalize(path5.join(projectFolder, filePath));
+}
+function shouldExtractFilePath(input) {
+  const eventName = input.hook_event_name.toLowerCase();
+  return eventName === "afterfileedit" || eventName === "posttooluse" && isWriteEvent(input);
+}
+function isWriteEvent(input) {
+  return WRITE_TOOL_NAMES.has(normalizeToolName(input.tool_name));
+}
+function normalizeToolName(toolName) {
+  return (toolName ?? "").replace(/[^A-Za-z0-9_]/g, "").toLowerCase();
+}
+function extractPathValues(input) {
+  if (!input) return [];
+  const values = [];
+  for (const key of PATH_KEYS) {
+    const value = input[key];
+    if (typeof value === "string") {
+      values.push(value);
+    }
+  }
+  for (const key of ["paths", "files"]) {
+    const value = input[key];
+    if (Array.isArray(value)) {
+      values.push(...value.filter((item) => typeof item === "string"));
+    }
+  }
+  return values;
+}
+
 // src/cli.ts
 var HOOK_MARKER = "cursor-cli-wakatime";
 var HOOK_EVENTS = ["postToolUse", "afterFileEdit", "stop", "sessionStart"];
 function getPackageRoot() {
-  return path5.resolve(__dirname, "..");
+  return path6.resolve(__dirname, "..");
 }
 function getHookScriptPath() {
-  return path5.join(getPackageRoot(), "scripts", "run");
+  return path6.join(getPackageRoot(), "scripts", "run");
 }
 function getHookCommand() {
   return quoteShellArg(getHookScriptPath());
@@ -5599,7 +5712,7 @@ function quoteShellArg(value) {
 }
 function isOurHookEntry(entry) {
   if (typeof entry.command !== "string") return false;
-  return entry.command.includes(HOOK_MARKER) || entry.command.includes(path5.join("cursor-cli-wakatime", "scripts", "run"));
+  return entry.command.includes(HOOK_MARKER) || entry.command.includes(path6.join("cursor-cli-wakatime", "scripts", "run"));
 }
 function createHookEntry() {
   return {
@@ -5622,7 +5735,7 @@ function readHooksConfig(filePath) {
   }
 }
 function writeHooksConfig(filePath, config) {
-  fs5.mkdirSync(path5.dirname(filePath), { recursive: true });
+  fs5.mkdirSync(path6.dirname(filePath), { recursive: true });
   const backup = `${filePath}.bak`;
   if (fs5.existsSync(filePath)) {
     fs5.copyFileSync(filePath, backup);
@@ -5652,7 +5765,7 @@ function addOurHooks(config) {
   return next;
 }
 function getHooksPath() {
-  return path5.join(getCursorHomeDirectory(), "hooks.json");
+  return path6.join(getCursorHomeDirectory(), "hooks.json");
 }
 function installHooks() {
   const hooksPath = getHooksPath();
@@ -5739,24 +5852,31 @@ function runTest() {
     console.error(`wakatime-cli not found at ${wakatimeCli}`);
     return 1;
   }
-  const args = [
-    "--sync-ai-activity",
-    "--plugin",
-    `cursor-cli/test cursor-cli-wakatime/${VERSION}`,
-    "--project-folder",
-    projectFolder
+  const input = {
+    conversation_id: "cursor-cli-wakatime-test",
+    generation_id: "cursor-cli-wakatime-test",
+    hook_event_name: "test",
+    cursor_version: "test",
+    workspace_roots: [projectFolder],
+    transcript_path: null
+  };
+  const commands = [
+    buildSyncAIActivityArgs({ input, pluginVersion: VERSION }),
+    buildDirectHeartbeatArgs({ input, pluginVersion: VERSION })
   ];
-  const result = (0, import_child_process.spawnSync)(wakatimeCli, args, {
-    ...buildOptions(),
-    encoding: "utf8"
-  });
-  if (result.status !== 0) {
-    console.error("Test heartbeat failed.");
-    if (result.stderr) console.error(result.stderr.trim());
-    if (result.stdout) console.error(result.stdout.trim());
-    return 1;
+  for (const args of commands) {
+    const result = (0, import_child_process.spawnSync)(wakatimeCli, args, {
+      ...buildOptions(),
+      encoding: "utf8"
+    });
+    if (result.status !== 0) {
+      console.error("Test heartbeat failed.");
+      if (result.stderr) console.error(result.stderr.trim());
+      if (result.stdout) console.error(result.stdout.trim());
+      return 1;
+    }
   }
-  console.log("Test sync-ai-activity succeeded.");
+  console.log("Test activity sync succeeded.");
   return 0;
 }
 function printHelp() {
