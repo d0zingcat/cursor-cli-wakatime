@@ -12,14 +12,16 @@
     "watch": "npm run prebuild && tsc --watch"
   },
   "files": [
+    ".cursor-plugin",
     "bin",
     "dist",
+    "hooks",
     "scripts",
     "README.md"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wakatime/cursor-cli-wakatime.git"
+    "url": "git+https://github.com/d0zingcat/cursor-cli-wakatime.git"
   },
   "keywords": [
     "cursor",

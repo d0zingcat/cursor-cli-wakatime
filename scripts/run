@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT="${CURSOR_CLI_WAKATIME_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
+ROOT="${CURSOR_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CURSOR_CLI_WAKATIME_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}}}"
 
 if [ -n "${NODE_OPTIONS:-}" ]; then
   unset NODE_OPTIONS

@@ -2,14 +2,14 @@
 
 Track AI coding activity from **Cursor CLI** terminal agent sessions on your [WakaTime](https://wakatime.com) dashboard.
 
-This package hooks into cursor-cli lifecycle events and calls `wakatime-cli --sync-ai-activity` to sync AI-generated code metrics, prompt time, and related stats.
+This plugin hooks into cursor-cli lifecycle events and calls `wakatime-cli --sync-ai-activity` to sync AI-generated code metrics, prompt time, and related stats.
 
 It does **not** replace the official [WakaTime Cursor extension](https://wakatime.com/cursor) for IDE typing time. Use both if you work in the IDE and the terminal.
 
 ## Prerequisites
 
-- Node.js 18+
 - [cursor-cli](https://cursor.com/docs/cli) (`agent` command)
+- Node.js 18+ (used by hook scripts)
 - WakaTime API key in `~/.wakatime.cfg`:
 
 ```ini
@@ -17,16 +17,33 @@ It does **not** replace the official [WakaTime Cursor extension](https://wakatim
 api_key = waka_xxx
 ```
 
-## Install
+## Install (recommended)
 
-```bash
-npm install -g cursor-cli-wakatime
-cursor-cli-wakatime install
+In **Cursor Agent** chat (IDE or terminal), run:
+
+```text
+/plugin marketplace add https://github.com/d0zingcat/cursor-cli-wakatime.git
+/plugin install cursor-cli-wakatime@wakatime
 ```
 
-Restart or start a new cursor-cli session after installing hooks.
+Then add your [API key](https://wakatime.com/api-key) to `~/.wakatime.cfg` if you have not already.
 
-## Commands
+Restart or start a new cursor-cli session after installing.
+
+### Upgrade
+
+```text
+/plugin marketplace update
+```
+
+## Alternative: npm global install
+
+For manual hook installation without the plugin marketplace:
+
+```bash
+npm install -g github:d0zingcat/cursor-cli-wakatime
+cursor-cli-wakatime install
+```
 
 | Command | Description |
 |---------|-------------|
@@ -38,7 +55,7 @@ Restart or start a new cursor-cli session after installing hooks.
 
 ## How it works
 
-Registered hooks (CLI-compatible events):
+Plugin hooks (CLI-compatible events):
 
 - `postToolUse`
 - `afterFileEdit`
@@ -58,11 +75,30 @@ When `transcript_path` is null (common in CLI), the plugin resolves transcripts 
 ~/.cursor/projects/<sanitized-workspace>/agent-transcripts/
 ```
 
+## Local development
+
+```bash
+npm run build
+agent --plugin-dir "$(pwd)" -p --force "say hello"
+```
+
+Or symlink for IDE testing:
+
+```bash
+ln -sf "$(pwd)" ~/.cursor/plugins/local/cursor-cli-wakatime
+```
+
 ## Troubleshooting
 
 ```bash
 cursor-cli-wakatime doctor
 cursor-cli-wakatime test
+```
+
+In Cursor Agent chat:
+
+```text
+/plugin list
 ```
 
 Enable debug logging in `~/.wakatime.cfg`:
@@ -82,8 +118,7 @@ grep error ~/.wakatime/wakatime.log | grep -v backoff
 ## Known limitations
 
 - cursor-cli hook coverage is incomplete compared to the IDE
-- Cloud agents do not load `~/.cursor/hooks.json`
-- `agent -p` headless mode may not fire all lifecycle hooks
+- Cloud agents do not load user-level plugin hooks the same way as local CLI
 - AI metrics depend on wakatime-cli parsing Cursor transcript format
 
 ## License

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/run",
+        "timeout": 30
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/run",
+        "timeout": 30
+      }
+    ],
+    "stop": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/run",
+        "timeout": 30
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/run",
+        "timeout": 30
+      }
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "wakatime",
+  "metadata": {
+    "description": "WakaTime plugins for AI coding time tracking"
+  },
+  "owner": {
+    "name": "WakaTime"
+  },
+  "plugins": [
+    {
+      "name": "cursor-cli-wakatime",
+      "source": "./",
+      "description": "WakaTime plugin for Cursor CLI - Track AI coding activity, lines generated, and prompt time",
+      "version": "1.0.0",
+      "homepage": "https://github.com/d0zingcat/cursor-cli-wakatime",
+      "repository": "https://github.com/d0zingcat/cursor-cli-wakatime",
+      "license": "BSD-3-Clause",
+      "keywords": [
+        "time-tracking",
+        "hooks",
+        "productivity",
+        "metrics",
+        "wakatime",
+        "cursor-cli"
+      ],
+      "category": "productivity",
+      "tags": [
+        "productivity",
+        "metrics",
+        "wakatime"
+      ]
+    }
+  ],
+  "version": "1.0.0"
+}
