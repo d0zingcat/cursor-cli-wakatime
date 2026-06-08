@@ -174,6 +174,10 @@ grep error ~/.wakatime/wakatime.log | grep -v backoff
 - Cloud agents do not load user-level plugin hooks the same way as local CLI
 - Rich AI metrics depend on wakatime-cli parsing Cursor transcript format; direct project/file heartbeats are still sent when parsing does not produce activity
 
+## Acknowledgements
+
+Thanks to [ryanhiizy/cursor-agent-wakatime](https://github.com/ryanhiizy/cursor-agent-wakatime) for demonstrating a practical direct-heartbeat approach for Cursor Agent hooks. The fallback heartbeat path in this plugin was inspired by that community implementation.
+
 ## License
 
 BSD-3-Clause
