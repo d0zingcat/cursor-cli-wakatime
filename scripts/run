@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT="${CURSOR_CLI_WAKATIME_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
+
+if [ -n "${NODE_OPTIONS:-}" ]; then
+  unset NODE_OPTIONS
+fi
+
+if [ -n "${NODE_BIN:-}" ] && [ -x "${NODE_BIN}" ]; then
+  exec "${NODE_BIN}" "$ROOT/dist/hook.js" "$@"
+fi
+
+if command -v node >/dev/null 2>&1; then
+  exec node "$ROOT/dist/hook.js" "$@"
+fi
+
+if command -v nix >/dev/null 2>&1; then
+  exec nix run nixpkgs#nodejs -- "$ROOT/dist/hook.js" "$@"
+fi
+
+echo "Error: Node.js not found. Is node in your PATH?
+- cursor-cli-wakatime requires Node to run hooks.
+- set NODE_BIN=/absolute/path/to/node, or if using NixOS
+- ensure 'nix' is available and flakes are enabled." >&2
+exit 127

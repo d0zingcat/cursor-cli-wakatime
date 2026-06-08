@@ -1,0 +1,44 @@
+{
+  "name": "cursor-cli-wakatime",
+  "version": "1.0.0",
+  "description": "WakaTime integration for Cursor CLI — track AI coding activity from terminal agent sessions",
+  "bin": {
+    "cursor-cli-wakatime": "bin/cursor-cli-wakatime.js"
+  },
+  "scripts": {
+    "prebuild": "node scripts/generate-version.js",
+    "build": "npm run prebuild && esbuild src/hook.ts --bundle --platform=node --outfile=dist/hook.js && esbuild src/cli.ts --bundle --platform=node --outfile=dist/cli.js",
+    "prepare": "npm run build",
+    "watch": "npm run prebuild && tsc --watch"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "scripts",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wakatime/cursor-cli-wakatime.git"
+  },
+  "keywords": [
+    "cursor",
+    "cursor-cli",
+    "wakatime",
+    "time-tracking",
+    "ai"
+  ],
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^20.9.2",
+    "@types/semver": "^7.7.0",
+    "@types/which": "^3.0.4",
+    "adm-zip": "0.5.16",
+    "esbuild": "^0.25.12",
+    "semver": "^7.7.2",
+    "typescript": "^5.2.2",
+    "which": "^5.0.0"
+  },
+  "author": "WakaTime",
+  "license": "BSD-3-Clause"
+}
