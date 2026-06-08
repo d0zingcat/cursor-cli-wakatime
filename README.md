@@ -89,10 +89,12 @@ Sending direct heartbeat: ... --entity <workspace-or-file> --category "ai coding
 For manual hook installation without the plugin marketplace:
 
 ```bash
-npm install -g github:d0zingcat/cursor-cli-wakatime
+npm install -g --install-links github:d0zingcat/cursor-cli-wakatime
 ```
 
-With **pnpm**, allow git `prepare`/`postinstall` scripts first:
+`--install-links` copies the package into global `node_modules` instead of symlinking npm's ephemeral git cache (required for reliable global git installs).
+
+With **pnpm**:
 
 ```bash
 pnpm add -g --allow-build=cursor-cli-wakatime github:d0zingcat/cursor-cli-wakatime
