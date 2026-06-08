@@ -1,10 +1,18 @@
 export type State = {
   lastHeartbeatAt?: number;
+  lastSignature?: string;
+  pendingFiles?: TrackedFile[];
+};
+
+export type TrackedFile = {
+  path: string;
+  isWrite: boolean;
 };
 
 export type HookEvent =
   | 'postToolUse'
   | 'afterFileEdit'
+  | 'afterAgentResponse'
   | 'stop'
   | 'sessionStart'
   | 'sessionEnd'

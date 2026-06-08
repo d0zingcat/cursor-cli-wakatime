@@ -11,7 +11,7 @@ import { buildDirectHeartbeatArgs, buildSyncAIActivityArgs } from './heartbeat';
 import { buildOptions, getCursorHomeDirectory } from './utils';
 
 export const HOOK_MARKER = 'cursor-cli-wakatime';
-export const HOOK_EVENTS = ['postToolUse', 'afterFileEdit', 'stop', 'sessionStart'] as const;
+export const HOOK_EVENTS = ['postToolUse', 'afterFileEdit', 'afterAgentResponse', 'stop', 'sessionStart'] as const;
 
 type HookEntry = {
   command: string;

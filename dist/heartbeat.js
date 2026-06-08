@@ -30,8 +30,13 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/heartbeat.ts
 var heartbeat_exports = {};
 __export(heartbeat_exports, {
+  buildDirectHeartbeatArgSets: () => buildDirectHeartbeatArgSets,
   buildDirectHeartbeatArgs: () => buildDirectHeartbeatArgs,
-  buildSyncAIActivityArgs: () => buildSyncAIActivityArgs
+  buildHeartbeatSignature: () => buildHeartbeatSignature,
+  buildSyncAIActivityArgs: () => buildSyncAIActivityArgs,
+  extractEditedFiles: () => extractEditedFiles,
+  mergeTrackedFiles: () => mergeTrackedFiles,
+  shouldSendDirectHeartbeat: () => shouldSendDirectHeartbeat
 });
 module.exports = __toCommonJS(heartbeat_exports);
 var path2 = __toESM(require("path"));
@@ -88,40 +93,81 @@ function buildSyncAIActivityArgs(params) {
   return args;
 }
 function buildDirectHeartbeatArgs(params) {
+  return buildDirectHeartbeatArgSets(params)[0] ?? [];
+}
+function buildDirectHeartbeatArgSets(params) {
   if (!params.input) return [];
   const projectFolder = getProjectRoot(params.input);
-  const filePath = extractEditedFilePath(params.input, projectFolder);
+  const trackedFiles = mergeTrackedFiles([], params.trackedFiles?.length ? params.trackedFiles : extractEditedFiles(params.input));
   const cursorVersion = getCursorVersion(params.input);
+  const base = {
+    cursorVersion,
+    pluginVersion: params.pluginVersion,
+    projectFolder
+  };
+  if (trackedFiles.length > 0) {
+    return trackedFiles.map((file) => buildDirectHeartbeatArgsForTarget({ ...base, file }));
+  }
+  return [buildDirectHeartbeatArgsForTarget(base)];
+}
+function extractEditedFiles(input) {
+  const projectFolder = getProjectRoot(input);
+  if (!shouldExtractFilePath(input)) return [];
+  return mergeTrackedFiles(
+    [],
+    [...extractPathValues(input), ...extractPathValues(input.tool_input)].filter((value) => value.trim()).map((filePath) => ({
+      path: normalizeFilePath(filePath, projectFolder),
+      isWrite: isWriteEvent(input)
+    }))
+  );
+}
+function mergeTrackedFiles(existing, incoming) {
+  const files = /* @__PURE__ */ new Map();
+  for (const file of [...existing, ...incoming]) {
+    const previous = files.get(file.path);
+    files.set(file.path, {
+      path: file.path,
+      isWrite: Boolean(previous?.isWrite || file.isWrite)
+    });
+  }
+  return Array.from(files.values());
+}
+function shouldSendDirectHeartbeat(input) {
+  if (!input) return false;
+  const eventName = input.hook_event_name.toLowerCase();
+  return eventName === "afteragentresponse" || eventName === "stop" || eventName === "sessionstart";
+}
+function buildHeartbeatSignature(input, trackedFiles) {
+  if (trackedFiles.length === 0) {
+    return `app:${getProjectRoot(input)}`;
+  }
+  return mergeTrackedFiles([], trackedFiles).map((file) => `${file.isWrite ? "w" : "r"}:${file.path}`).sort().join("|");
+}
+function buildDirectHeartbeatArgsForTarget(params) {
+  const filePath = params.file?.path;
   const args = [
     "--entity",
-    filePath ?? projectFolder,
+    filePath ?? params.projectFolder,
     "--entity-type",
     filePath ? "file" : "app",
     "--category",
     "ai coding",
     "--plugin",
-    pluginName(cursorVersion, params.pluginVersion),
+    pluginName(params.cursorVersion, params.pluginVersion),
     "--project-folder",
-    projectFolder
+    params.projectFolder
   ];
   if (!filePath) {
-    args.push("--project", path2.basename(projectFolder));
+    args.push("--project", path2.basename(params.projectFolder));
   }
   args.push("--heartbeat-rate-limit-seconds", "0", "--sync-ai-disabled");
-  if (filePath && isWriteEvent(params.input)) {
+  if (params.file?.isWrite) {
     args.push("--write");
   }
   return args;
 }
 function pluginName(cursorVersion, pluginVersion) {
   return `cursor-cli/${cursorVersion} cursor-cli-wakatime/${pluginVersion}`;
-}
-function extractEditedFilePath(input, projectFolder) {
-  if (!shouldExtractFilePath(input)) return;
-  const values = [...extractPathValues(input), ...extractPathValues(input.tool_input)];
-  const filePath = values.find((value) => value.trim());
-  if (!filePath) return;
-  return path2.isAbsolute(filePath) ? path2.normalize(filePath) : path2.normalize(path2.join(projectFolder, filePath));
 }
 function shouldExtractFilePath(input) {
   const eventName = input.hook_event_name.toLowerCase();
@@ -150,8 +196,16 @@ function extractPathValues(input) {
   }
   return values;
 }
+function normalizeFilePath(filePath, projectFolder) {
+  return path2.isAbsolute(filePath) ? path2.normalize(filePath) : path2.normalize(path2.join(projectFolder, filePath));
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  buildDirectHeartbeatArgSets,
   buildDirectHeartbeatArgs,
-  buildSyncAIActivityArgs
+  buildHeartbeatSignature,
+  buildSyncAIActivityArgs,
+  extractEditedFiles,
+  mergeTrackedFiles,
+  shouldSendDirectHeartbeat
 });

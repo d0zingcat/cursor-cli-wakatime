@@ -7,12 +7,21 @@ import { VERSION } from './version';
 import { Dependencies } from './dependencies';
 import { logger, LogLevel } from './logger';
 import { CursorHookInput } from './types';
-import { buildDirectHeartbeatArgs, buildSyncAIActivityArgs } from './heartbeat';
+import {
+  buildDirectHeartbeatArgSets,
+  buildHeartbeatSignature,
+  buildSyncAIActivityArgs,
+  extractEditedFiles,
+  shouldSendDirectHeartbeat,
+} from './heartbeat';
 import {
   buildOptions,
+  clearPendingFiles,
   formatArguments,
+  getPendingFiles,
+  rememberPendingFiles,
   parseInput,
-  shouldSendHeartbeat,
+  shouldSendHeartbeatForSignature,
   updateState,
 } from './utils';
 
@@ -38,11 +47,24 @@ async function runWakatime(args: string[], label: string): Promise<boolean> {
 }
 
 async function sendHeartbeat(inp: CursorHookInput | undefined): Promise<boolean> {
-  const syncOk = await runWakatime(buildSyncAIActivityArgs({ input: inp, pluginVersion: VERSION }), 'Syncing AI activity');
-  const directArgs = buildDirectHeartbeatArgs({ input: inp, pluginVersion: VERSION });
-  const directOk = directArgs.length > 0 ? await runWakatime(directArgs, 'Sending direct heartbeat') : false;
+  if (!inp || !shouldSendDirectHeartbeat(inp)) return false;
 
-  return syncOk || directOk;
+  const trackedFiles = getPendingFiles(inp);
+  const signature = buildHeartbeatSignature(inp, trackedFiles);
+  if (!shouldSendHeartbeatForSignature(inp, signature)) return false;
+
+  const syncOk = await runWakatime(buildSyncAIActivityArgs({ input: inp, pluginVersion: VERSION }), 'Syncing AI activity');
+  const directArgSets = buildDirectHeartbeatArgSets({ input: inp, pluginVersion: VERSION, trackedFiles });
+  const directResults = await Promise.all(directArgSets.map((args) => runWakatime(args, 'Sending direct heartbeat')));
+  const directOk = directResults.some(Boolean);
+
+  if (syncOk || directOk) {
+    await updateState(inp, signature);
+    await clearPendingFiles(inp);
+    return true;
+  }
+
+  return false;
 }
 
 async function main(): Promise<void> {
@@ -56,10 +78,9 @@ async function main(): Promise<void> {
 
     deps.checkAndInstallCli();
 
-    if (shouldSendHeartbeat(inp)) {
-      if (await sendHeartbeat(inp)) {
-        await updateState(inp);
-      }
+    if (inp) {
+      await rememberPendingFiles(inp, extractEditedFiles(inp));
+      await sendHeartbeat(inp);
     }
   } catch (err) {
     logger.errorException(err);

@@ -4935,20 +4935,43 @@ function getStateFile(inp) {
   const conversationId = inp.conversation_id || "unknown";
   return path.join(getHomeDirectory(), ".wakatime", "cursor-cli", `${sanitizeFileName(conversationId)}.wakatime`);
 }
-function shouldSendHeartbeat(inp) {
+function shouldSendHeartbeatForSignature(inp, signature) {
   if (!inp) return false;
   try {
-    const last = JSON.parse(fs.readFileSync(getStateFile(inp), "utf-8")).lastHeartbeatAt ?? 0;
-    return timestamp() - last >= 60;
+    const state = readState(inp);
+    const last = state.lastHeartbeatAt ?? 0;
+    return timestamp() - last >= 60 || !!signature && signature !== state.lastSignature;
   } catch {
     return true;
   }
 }
-async function updateState(inp) {
+async function updateState(inp, signature) {
   if (!inp) return;
-  const file = getStateFile(inp);
-  await fs.promises.mkdir(path.dirname(file), { recursive: true });
-  await fs.promises.writeFile(file, JSON.stringify({ lastHeartbeatAt: timestamp() }, null, 2));
+  const state = readState(inp);
+  await writeState(inp, {
+    ...state,
+    lastHeartbeatAt: timestamp(),
+    lastSignature: signature ?? state.lastSignature
+  });
+}
+function getPendingFiles(inp) {
+  if (!inp) return [];
+  return readState(inp).pendingFiles ?? [];
+}
+async function rememberPendingFiles(inp, files) {
+  if (!inp || files.length === 0) return;
+  const state = readState(inp);
+  await writeState(inp, {
+    ...state,
+    pendingFiles: mergePendingFiles(state.pendingFiles ?? [], files)
+  });
+}
+async function clearPendingFiles(inp) {
+  if (!inp) return;
+  const state = readState(inp);
+  if (!state.pendingFiles?.length) return;
+  const { pendingFiles: _pendingFiles, ...next } = state;
+  await writeState(inp, next);
 }
 function getCursorVersion(inp) {
   return inp?.cursor_version?.trim() || "";
@@ -4987,6 +5010,29 @@ function buildOptions(stdin) {
 }
 function timestamp() {
   return Date.now() / 1e3;
+}
+function readState(inp) {
+  try {
+    return JSON.parse(fs.readFileSync(getStateFile(inp), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+async function writeState(inp, state) {
+  const file = getStateFile(inp);
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
+  await fs.promises.writeFile(file, JSON.stringify(state, null, 2));
+}
+function mergePendingFiles(existing, incoming) {
+  const files = /* @__PURE__ */ new Map();
+  for (const file of [...existing, ...incoming]) {
+    const previous = files.get(file.path);
+    files.set(file.path, {
+      path: file.path,
+      isWrite: Boolean(previous?.isWrite || file.isWrite)
+    });
+  }
+  return Array.from(files.values());
 }
 function fileExists(filePath) {
   try {
@@ -5700,41 +5746,79 @@ function buildSyncAIActivityArgs(params) {
   }
   return args;
 }
-function buildDirectHeartbeatArgs(params) {
+function buildDirectHeartbeatArgSets(params) {
   if (!params.input) return [];
   const projectFolder = getProjectRoot(params.input);
-  const filePath = extractEditedFilePath(params.input, projectFolder);
+  const trackedFiles = mergeTrackedFiles([], params.trackedFiles?.length ? params.trackedFiles : extractEditedFiles(params.input));
   const cursorVersion = getCursorVersion(params.input);
+  const base = {
+    cursorVersion,
+    pluginVersion: params.pluginVersion,
+    projectFolder
+  };
+  if (trackedFiles.length > 0) {
+    return trackedFiles.map((file) => buildDirectHeartbeatArgsForTarget({ ...base, file }));
+  }
+  return [buildDirectHeartbeatArgsForTarget(base)];
+}
+function extractEditedFiles(input) {
+  const projectFolder = getProjectRoot(input);
+  if (!shouldExtractFilePath(input)) return [];
+  return mergeTrackedFiles(
+    [],
+    [...extractPathValues(input), ...extractPathValues(input.tool_input)].filter((value) => value.trim()).map((filePath) => ({
+      path: normalizeFilePath(filePath, projectFolder),
+      isWrite: isWriteEvent(input)
+    }))
+  );
+}
+function mergeTrackedFiles(existing, incoming) {
+  const files = /* @__PURE__ */ new Map();
+  for (const file of [...existing, ...incoming]) {
+    const previous = files.get(file.path);
+    files.set(file.path, {
+      path: file.path,
+      isWrite: Boolean(previous?.isWrite || file.isWrite)
+    });
+  }
+  return Array.from(files.values());
+}
+function shouldSendDirectHeartbeat(input) {
+  if (!input) return false;
+  const eventName = input.hook_event_name.toLowerCase();
+  return eventName === "afteragentresponse" || eventName === "stop" || eventName === "sessionstart";
+}
+function buildHeartbeatSignature(input, trackedFiles) {
+  if (trackedFiles.length === 0) {
+    return `app:${getProjectRoot(input)}`;
+  }
+  return mergeTrackedFiles([], trackedFiles).map((file) => `${file.isWrite ? "w" : "r"}:${file.path}`).sort().join("|");
+}
+function buildDirectHeartbeatArgsForTarget(params) {
+  const filePath = params.file?.path;
   const args = [
     "--entity",
-    filePath ?? projectFolder,
+    filePath ?? params.projectFolder,
     "--entity-type",
     filePath ? "file" : "app",
     "--category",
     "ai coding",
     "--plugin",
-    pluginName(cursorVersion, params.pluginVersion),
+    pluginName(params.cursorVersion, params.pluginVersion),
     "--project-folder",
-    projectFolder
+    params.projectFolder
   ];
   if (!filePath) {
-    args.push("--project", path5.basename(projectFolder));
+    args.push("--project", path5.basename(params.projectFolder));
   }
   args.push("--heartbeat-rate-limit-seconds", "0", "--sync-ai-disabled");
-  if (filePath && isWriteEvent(params.input)) {
+  if (params.file?.isWrite) {
     args.push("--write");
   }
   return args;
 }
 function pluginName(cursorVersion, pluginVersion) {
   return `cursor-cli/${cursorVersion} cursor-cli-wakatime/${pluginVersion}`;
-}
-function extractEditedFilePath(input, projectFolder) {
-  if (!shouldExtractFilePath(input)) return;
-  const values = [...extractPathValues(input), ...extractPathValues(input.tool_input)];
-  const filePath = values.find((value) => value.trim());
-  if (!filePath) return;
-  return path5.isAbsolute(filePath) ? path5.normalize(filePath) : path5.normalize(path5.join(projectFolder, filePath));
 }
 function shouldExtractFilePath(input) {
   const eventName = input.hook_event_name.toLowerCase();
@@ -5763,6 +5847,9 @@ function extractPathValues(input) {
   }
   return values;
 }
+function normalizeFilePath(filePath, projectFolder) {
+  return path5.isAbsolute(filePath) ? path5.normalize(filePath) : path5.normalize(path5.join(projectFolder, filePath));
+}
 
 // src/hook.ts
 var options = new Options();
@@ -5783,10 +5870,20 @@ async function runWakatime(args, label) {
   }
 }
 async function sendHeartbeat(inp) {
+  if (!inp || !shouldSendDirectHeartbeat(inp)) return false;
+  const trackedFiles = getPendingFiles(inp);
+  const signature = buildHeartbeatSignature(inp, trackedFiles);
+  if (!shouldSendHeartbeatForSignature(inp, signature)) return false;
   const syncOk = await runWakatime(buildSyncAIActivityArgs({ input: inp, pluginVersion: VERSION }), "Syncing AI activity");
-  const directArgs = buildDirectHeartbeatArgs({ input: inp, pluginVersion: VERSION });
-  const directOk = directArgs.length > 0 ? await runWakatime(directArgs, "Sending direct heartbeat") : false;
-  return syncOk || directOk;
+  const directArgSets = buildDirectHeartbeatArgSets({ input: inp, pluginVersion: VERSION, trackedFiles });
+  const directResults = await Promise.all(directArgSets.map((args) => runWakatime(args, "Sending direct heartbeat")));
+  const directOk = directResults.some(Boolean);
+  if (syncOk || directOk) {
+    await updateState(inp, signature);
+    await clearPendingFiles(inp);
+    return true;
+  }
+  return false;
 }
 async function main() {
   const inp = parseInput();
@@ -5795,10 +5892,9 @@ async function main() {
   try {
     if (inp) logger.debug(JSON.stringify(inp, null, 2));
     deps.checkAndInstallCli();
-    if (shouldSendHeartbeat(inp)) {
-      if (await sendHeartbeat(inp)) {
-        await updateState(inp);
-      }
+    if (inp) {
+      await rememberPendingFiles(inp, extractEditedFiles(inp));
+      await sendHeartbeat(inp);
     }
   } catch (err) {
     logger.errorException(err);

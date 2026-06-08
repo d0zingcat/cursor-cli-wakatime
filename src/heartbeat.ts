@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { CursorHookInput } from './types';
+import { CursorHookInput, TrackedFile } from './types';
 import { getCursorVersion, getProjectRoot } from './utils';
 
 const WRITE_TOOL_NAMES = new Set([
@@ -47,31 +47,107 @@ export function buildSyncAIActivityArgs(params: { input?: CursorHookInput; plugi
 }
 
 export function buildDirectHeartbeatArgs(params: { input?: CursorHookInput; pluginVersion: string }): string[] {
+  return buildDirectHeartbeatArgSets(params)[0] ?? [];
+}
+
+export function buildDirectHeartbeatArgSets(params: {
+  input?: CursorHookInput;
+  pluginVersion: string;
+  trackedFiles?: TrackedFile[];
+}): string[][] {
   if (!params.input) return [];
 
   const projectFolder = getProjectRoot(params.input);
-  const filePath = extractEditedFilePath(params.input, projectFolder);
+  const trackedFiles = mergeTrackedFiles([], params.trackedFiles?.length ? params.trackedFiles : extractEditedFiles(params.input));
   const cursorVersion = getCursorVersion(params.input);
+  const base = {
+    cursorVersion,
+    pluginVersion: params.pluginVersion,
+    projectFolder,
+  };
+
+  if (trackedFiles.length > 0) {
+    return trackedFiles.map((file) => buildDirectHeartbeatArgsForTarget({ ...base, file }));
+  }
+
+  return [buildDirectHeartbeatArgsForTarget(base)];
+}
+
+export function extractEditedFiles(input: CursorHookInput): TrackedFile[] {
+  const projectFolder = getProjectRoot(input);
+
+  if (!shouldExtractFilePath(input)) return [];
+
+  return mergeTrackedFiles(
+    [],
+    [...extractPathValues(input), ...extractPathValues(input.tool_input)]
+      .filter((value) => value.trim())
+      .map((filePath) => ({
+        path: normalizeFilePath(filePath, projectFolder),
+        isWrite: isWriteEvent(input),
+      })),
+  );
+}
+
+export function mergeTrackedFiles(existing: TrackedFile[], incoming: TrackedFile[]): TrackedFile[] {
+  const files = new Map<string, TrackedFile>();
+
+  for (const file of [...existing, ...incoming]) {
+    const previous = files.get(file.path);
+    files.set(file.path, {
+      path: file.path,
+      isWrite: Boolean(previous?.isWrite || file.isWrite),
+    });
+  }
+
+  return Array.from(files.values());
+}
+
+export function shouldSendDirectHeartbeat(input?: CursorHookInput): boolean {
+  if (!input) return false;
+
+  const eventName = input.hook_event_name.toLowerCase();
+  return eventName === 'afteragentresponse' || eventName === 'stop' || eventName === 'sessionstart';
+}
+
+export function buildHeartbeatSignature(input: CursorHookInput, trackedFiles: TrackedFile[]): string {
+  if (trackedFiles.length === 0) {
+    return `app:${getProjectRoot(input)}`;
+  }
+
+  return mergeTrackedFiles([], trackedFiles)
+    .map((file) => `${file.isWrite ? 'w' : 'r'}:${file.path}`)
+    .sort()
+    .join('|');
+}
+
+function buildDirectHeartbeatArgsForTarget(params: {
+  cursorVersion: string;
+  pluginVersion: string;
+  projectFolder: string;
+  file?: TrackedFile;
+}): string[] {
+  const filePath = params.file?.path;
   const args = [
     '--entity',
-    filePath ?? projectFolder,
+    filePath ?? params.projectFolder,
     '--entity-type',
     filePath ? 'file' : 'app',
     '--category',
     'ai coding',
     '--plugin',
-    pluginName(cursorVersion, params.pluginVersion),
+    pluginName(params.cursorVersion, params.pluginVersion),
     '--project-folder',
-    projectFolder,
+    params.projectFolder,
   ];
 
   if (!filePath) {
-    args.push('--project', path.basename(projectFolder));
+    args.push('--project', path.basename(params.projectFolder));
   }
 
   args.push('--heartbeat-rate-limit-seconds', '0', '--sync-ai-disabled');
 
-  if (filePath && isWriteEvent(params.input)) {
+  if (params.file?.isWrite) {
     args.push('--write');
   }
 
@@ -89,7 +165,7 @@ function extractEditedFilePath(input: CursorHookInput, projectFolder: string): s
   const filePath = values.find((value) => value.trim());
 
   if (!filePath) return;
-  return path.isAbsolute(filePath) ? path.normalize(filePath) : path.normalize(path.join(projectFolder, filePath));
+  return normalizeFilePath(filePath, projectFolder);
 }
 
 function shouldExtractFilePath(input: CursorHookInput): boolean {
@@ -125,4 +201,8 @@ function extractPathValues(input: Record<string, unknown> | undefined): string[]
   }
 
   return values;
+}
+
+function normalizeFilePath(filePath: string, projectFolder: string): string {
+  return path.isAbsolute(filePath) ? path.normalize(filePath) : path.normalize(path.join(projectFolder, filePath));
 }
