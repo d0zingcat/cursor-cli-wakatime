@@ -19,16 +19,51 @@ api_key = waka_xxx
 
 ## Install (recommended)
 
-In **Cursor Agent** chat (IDE or terminal), run:
+Two steps are required for **`agent -p`** (terminal headless). Plugin install alone does **not** register hooks — unlike Claude Code, `agent -p` currently reads hooks from `~/.cursor/hooks.json`, not from installed plugin `hooks/hooks.json`.
+
+### Step 1: Install the plugin
+
+In **Cursor Agent** chat (IDE or terminal):
 
 ```text
 /plugin marketplace add https://github.com/d0zingcat/cursor-cli-wakatime.git
+```
+
+After the marketplace is added, Cursor shows **Plugin details / cursor-cli-wakatime**. Choose **Install for you (user scope)**. That is equivalent to:
+
+```text
 /plugin install cursor-cli-wakatime@d0zingcat-wakatime
 ```
 
-Then add your [API key](https://wakatime.com/api-key) to `~/.wakatime.cfg` if you have not already.
+Use marketplace name **`d0zingcat-wakatime`**, not `wakatime` (the official Claude plugin marketplace uses that name and can cache the wrong plugin).
 
-Restart or start a new cursor-cli session after installing.
+### Step 2: Register hooks (required)
+
+```bash
+~/.cursor/plugins/cache/d0zingcat-wakatime/cursor-cli-wakatime/*/bin/cursor-cli-wakatime.js install
+```
+
+This writes hook entries to `~/.cursor/hooks.json` pointing at the installed plugin's `scripts/run`.
+
+### Step 3: API key
+
+Add your [API key](https://wakatime.com/api-key) to `~/.wakatime.cfg` if you have not already:
+
+```ini
+[settings]
+api_key = waka_xxx
+```
+
+Start a new `agent` session after installing.
+
+### Verify
+
+```bash
+agent -p -f "Reply OK"
+find ~/.cursor/projects -name "*.wakatime" -newermt "1 min ago"
+```
+
+You should see a `*.jsonl.wakatime` file next to the session transcript.
 
 ### Upgrade
 
@@ -117,6 +152,8 @@ grep error ~/.wakatime/wakatime.log | grep -v backoff
 
 ## Known limitations
 
+- **`agent -p` does not auto-load plugin hooks** — you must run `cursor-cli-wakatime install` after `/plugin install` (Claude Code merges plugin hooks automatically; Cursor CLI headless does not yet)
+- Cursor plugins have no post-install script ([plugin manifest](https://cursor.com/docs/reference/plugins) has no `postInstall` lifecycle)
 - cursor-cli hook coverage is incomplete compared to the IDE
 - Cloud agents do not load user-level plugin hooks the same way as local CLI
 - AI metrics depend on wakatime-cli parsing Cursor transcript format
