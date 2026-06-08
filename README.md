@@ -2,7 +2,14 @@
 
 Track AI coding activity from **Cursor CLI** terminal agent sessions on your [WakaTime](https://wakatime.com) dashboard.
 
-This plugin hooks into cursor-cli lifecycle events and calls `wakatime-cli --sync-ai-activity` to sync AI-generated code metrics, prompt time, and related stats.
+This plugin hooks into cursor-cli lifecycle events and sends WakaTime heartbeats for Cursor CLI agent activity.
+
+It uses a hybrid tracking strategy:
+
+- Runs `wakatime-cli --sync-ai-activity` to collect rich AI metrics when WakaTime CLI can parse Cursor transcripts.
+- Collects edited files from lightweight hook events and sends direct `ai coding` heartbeats at agent response boundaries.
+
+The direct heartbeat is the reliable fallback path: even when WakaTime CLI cannot parse the current Cursor CLI transcript format yet, your WakaTime/Wakapi dashboard still updates for the active project or edited files.
 
 It does **not** replace the official [WakaTime Cursor extension](https://wakatime.com/cursor) for IDE typing time. Use both if you work in the IDE and the terminal.
 
@@ -63,7 +70,13 @@ agent -p -f "Reply OK"
 find ~/.cursor/projects -name "*.wakatime" -newermt "1 min ago"
 ```
 
-You should see a `*.jsonl.wakatime` file next to the session transcript.
+You should see a `*.jsonl.wakatime` file next to the session transcript, plus recent `cursor-cli-wakatime` entries in `~/.wakatime/wakatime.log`.
+
+For the direct fallback heartbeat, look for a line like:
+
+```text
+Sending direct heartbeat: ... --entity <workspace-or-file> --category "ai coding" ... --sync-ai-disabled
+```
 
 ### Upgrade
 
@@ -86,7 +99,7 @@ cursor-cli-wakatime install
 | `cursor-cli-wakatime uninstall` | Remove only this package's hook entries |
 | `cursor-cli-wakatime status` | Show hook, CLI, and config paths |
 | `cursor-cli-wakatime doctor` | Verify installation health |
-| `cursor-cli-wakatime test` | Run one `sync-ai-activity` for the current directory |
+| `cursor-cli-wakatime test` | Run one activity sync for the current directory |
 
 ## How it works
 
@@ -94,21 +107,40 @@ Plugin hooks (CLI-compatible events):
 
 - `postToolUse`
 - `afterFileEdit`
+- `afterAgentResponse`
 - `stop`
 - `sessionStart`
 
 On each event, the hook script:
 
 1. Reads JSON from stdin (Cursor hook payload)
-2. Rate-limits to one sync per conversation per 60 seconds
+2. Stores edited file paths from `postToolUse` and `afterFileEdit`
 3. Ensures `wakatime-cli` is installed under `~/.wakatime/`
-4. Runs `wakatime-cli --sync-ai-activity --project-folder <workspace>`
+4. On `afterAgentResponse`, sends direct file heartbeats for the files collected during the turn
+5. Uses `sessionStart` and `stop` as lifecycle/fallback points for project-level activity
+6. Runs `wakatime-cli --sync-ai-activity --project-folder <workspace>` at send points to preserve rich AI metrics when transcript parsing works
+
+The direct heartbeat uses `--sync-ai-disabled` so it does not recursively trigger AI transcript parsing, and `--heartbeat-rate-limit-seconds 0` because this package already applies its own per-conversation rate limit.
 
 When `transcript_path` is null (common in CLI), the plugin resolves transcripts under:
 
 ```
 ~/.cursor/projects/<sanitized-workspace>/agent-transcripts/
 ```
+
+## Design Notes
+
+This project intentionally combines two approaches:
+
+| Area | `ryanhiizy/cursor-agent-wakatime` | `cursor-cli-wakatime` |
+| --- | --- | --- |
+| Primary send point | `afterAgentResponse` | `afterAgentResponse`, with `stop` fallback |
+| File attribution | Collect edit/tool events, send file heartbeats after the response | Same model for direct fallback heartbeats |
+| AI transcript metrics | Direct heartbeat focused | Hybrid: direct heartbeat plus `wakatime-cli --sync-ai-activity` |
+| Project fallback | Sends project-level app activity when no file is available | Same, also sends at `sessionStart` for session visibility |
+| Goal | Reliable Cursor Agent time tracking | Reliable tracking plus best-effort rich AI metrics when WakaTime CLI supports the transcript format |
+
+The direct heartbeat design is inspired by [`ryanhiizy/cursor-agent-wakatime`](https://github.com/ryanhiizy/cursor-agent-wakatime): edit-related hooks are best used for collection, while `afterAgentResponse` is a better approximation of when one unit of agent work has completed. This plugin keeps that send timing, then layers on `sync-ai-activity` so future WakaTime CLI improvements can still provide AI session, token, and line-change metadata.
 
 ## Local development
 
@@ -156,7 +188,11 @@ grep error ~/.wakatime/wakatime.log | grep -v backoff
 - Cursor plugins have no post-install script ([plugin manifest](https://cursor.com/docs/reference/plugins) has no `postInstall` lifecycle)
 - cursor-cli hook coverage is incomplete compared to the IDE
 - Cloud agents do not load user-level plugin hooks the same way as local CLI
-- AI metrics depend on wakatime-cli parsing Cursor transcript format
+- Rich AI metrics depend on wakatime-cli parsing Cursor transcript format; direct project/file heartbeats are still sent when parsing does not produce activity
+
+## Acknowledgements
+
+Thanks to [ryanhiizy/cursor-agent-wakatime](https://github.com/ryanhiizy/cursor-agent-wakatime) for demonstrating a practical direct-heartbeat approach for Cursor Agent hooks. The fallback heartbeat path in this plugin was inspired by that community implementation.
 
 ## License
 

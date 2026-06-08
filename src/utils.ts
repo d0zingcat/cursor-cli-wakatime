@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as child_process from 'child_process';
 import { StdioOptions } from 'child_process';
-import { CursorHookInput, State } from './types';
+import { CursorHookInput, State, TrackedFile } from './types';
 import { logger } from './logger';
 
 export function parseInput(): CursorHookInput | undefined {
@@ -58,21 +58,52 @@ function getStateFile(inp: CursorHookInput): string {
 }
 
 export function shouldSendHeartbeat(inp?: CursorHookInput): boolean {
+  return shouldSendHeartbeatForSignature(inp);
+}
+
+export function shouldSendHeartbeatForSignature(inp?: CursorHookInput, signature?: string): boolean {
   if (!inp) return false;
 
   try {
-    const last = (JSON.parse(fs.readFileSync(getStateFile(inp), 'utf-8')) as State).lastHeartbeatAt ?? 0;
-    return timestamp() - last >= 60;
+    const state = readState(inp);
+    const last = state.lastHeartbeatAt ?? 0;
+    return timestamp() - last >= 60 || (!!signature && signature !== state.lastSignature);
   } catch {
     return true;
   }
 }
 
-export async function updateState(inp?: CursorHookInput): Promise<void> {
+export async function updateState(inp?: CursorHookInput, signature?: string): Promise<void> {
   if (!inp) return;
-  const file = getStateFile(inp);
-  await fs.promises.mkdir(path.dirname(file), { recursive: true });
-  await fs.promises.writeFile(file, JSON.stringify({ lastHeartbeatAt: timestamp() } as State, null, 2));
+  const state = readState(inp);
+  await writeState(inp, {
+    ...state,
+    lastHeartbeatAt: timestamp(),
+    lastSignature: signature ?? state.lastSignature,
+  });
+}
+
+export function getPendingFiles(inp?: CursorHookInput): TrackedFile[] {
+  if (!inp) return [];
+  return readState(inp).pendingFiles ?? [];
+}
+
+export async function rememberPendingFiles(inp: CursorHookInput | undefined, files: TrackedFile[]): Promise<void> {
+  if (!inp || files.length === 0) return;
+  const state = readState(inp);
+  await writeState(inp, {
+    ...state,
+    pendingFiles: mergePendingFiles(state.pendingFiles ?? [], files),
+  });
+}
+
+export async function clearPendingFiles(inp?: CursorHookInput): Promise<void> {
+  if (!inp) return;
+  const state = readState(inp);
+  if (!state.pendingFiles?.length) return;
+
+  const { pendingFiles: _pendingFiles, ...next } = state;
+  await writeState(inp, next);
 }
 
 export function getCursorVersion(inp: CursorHookInput | undefined): string {
@@ -121,6 +152,34 @@ export function buildOptions(stdin?: boolean): child_process.ExecFileOptions {
 
 function timestamp(): number {
   return Date.now() / 1000;
+}
+
+function readState(inp: CursorHookInput): State {
+  try {
+    return JSON.parse(fs.readFileSync(getStateFile(inp), 'utf-8')) as State;
+  } catch {
+    return {};
+  }
+}
+
+async function writeState(inp: CursorHookInput, state: State): Promise<void> {
+  const file = getStateFile(inp);
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
+  await fs.promises.writeFile(file, JSON.stringify(state, null, 2));
+}
+
+function mergePendingFiles(existing: TrackedFile[], incoming: TrackedFile[]): TrackedFile[] {
+  const files = new Map<string, TrackedFile>();
+
+  for (const file of [...existing, ...incoming]) {
+    const previous = files.get(file.path);
+    files.set(file.path, {
+      path: file.path,
+      isWrite: Boolean(previous?.isWrite || file.isWrite),
+    });
+  }
+
+  return Array.from(files.values());
 }
 
 function fileExists(filePath: string): boolean {

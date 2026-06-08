@@ -2,6 +2,7 @@ node_modules/
 dist/*
 !dist/hook.js
 !dist/cli.js
+!dist/heartbeat.js
 *.log
 .DS_Store
 src/version.ts

@@ -7,10 +7,11 @@ import { Options } from './options';
 import { Dependencies } from './dependencies';
 import { logger } from './logger';
 import { VERSION } from './version';
+import { buildDirectHeartbeatArgs, buildSyncAIActivityArgs } from './heartbeat';
 import { buildOptions, getCursorHomeDirectory } from './utils';
 
 export const HOOK_MARKER = 'cursor-cli-wakatime';
-export const HOOK_EVENTS = ['postToolUse', 'afterFileEdit', 'stop', 'sessionStart'] as const;
+export const HOOK_EVENTS = ['postToolUse', 'afterFileEdit', 'afterAgentResponse', 'stop', 'sessionStart'] as const;
 
 type HookEntry = {
   command: string;
@@ -208,27 +209,34 @@ function runTest(): number {
     return 1;
   }
 
-  const args = [
-    '--sync-ai-activity',
-    '--plugin',
-    `cursor-cli/test cursor-cli-wakatime/${VERSION}`,
-    '--project-folder',
-    projectFolder,
+  const input = {
+    conversation_id: 'cursor-cli-wakatime-test',
+    generation_id: 'cursor-cli-wakatime-test',
+    hook_event_name: 'test',
+    cursor_version: 'test',
+    workspace_roots: [projectFolder],
+    transcript_path: null,
+  };
+  const commands = [
+    buildSyncAIActivityArgs({ input, pluginVersion: VERSION }),
+    buildDirectHeartbeatArgs({ input, pluginVersion: VERSION }),
   ];
 
-  const result = spawnSync(wakatimeCli, args, {
-    ...buildOptions(),
-    encoding: 'utf8',
-  });
+  for (const args of commands) {
+    const result = spawnSync(wakatimeCli, args, {
+      ...buildOptions(),
+      encoding: 'utf8',
+    });
 
-  if (result.status !== 0) {
-    console.error('Test heartbeat failed.');
-    if (result.stderr) console.error(result.stderr.trim());
-    if (result.stdout) console.error(result.stdout.trim());
-    return 1;
+    if (result.status !== 0) {
+      console.error('Test heartbeat failed.');
+      if (result.stderr) console.error(result.stderr.trim());
+      if (result.stdout) console.error(result.stdout.trim());
+      return 1;
+    }
   }
 
-  console.log('Test sync-ai-activity succeeded.');
+  console.log('Test activity sync succeeded.');
   return 0;
 }
 
