@@ -32,7 +32,9 @@ function getHookScriptPath(): string {
 }
 
 function getHookCommand(): string {
-  return quoteShellArg(getHookScriptPath());
+  const root = getPackageRoot();
+  const script = getHookScriptPath();
+  return `CURSOR_CLI_WAKATIME_ROOT=${quoteShellArg(root)} ${quoteShellArg(script)}`;
 }
 
 function quoteShellArg(value: string): string {
@@ -44,7 +46,17 @@ function quoteShellArg(value: string): string {
 
 function isOurHookEntry(entry: HookEntry): boolean {
   if (typeof entry.command !== 'string') return false;
-  return entry.command.includes(HOOK_MARKER) || entry.command.includes(path.join('cursor-cli-wakatime', 'scripts', 'run'));
+  const command = entry.command;
+  if (command.includes(HOOK_MARKER)) return true;
+  if (command.includes('CURSOR_CLI_WAKATIME_ROOT=')) return true;
+  if (command.includes(path.join('cursor-cli-wakatime', 'scripts', 'run'))) return true;
+  // npm global git installs wrote ephemeral cache paths without the package name
+  if (/\/_cacache\/tmp\/git-clone[^/'"]+\/scripts\/run/.test(command)) return true;
+  return false;
+}
+
+function hookEntryMatchesCurrentInstall(entry: HookEntry): boolean {
+  return isOurHookEntry(entry) && entry.command === getHookCommand();
 }
 
 function createHookEntry(): HookEntry {
@@ -117,7 +129,7 @@ function hooksAreInstalled(): boolean {
   const config = readHooksConfig(hooksPath);
   return HOOK_EVENTS.every((eventName) => {
     const entries = config.hooks[eventName] ?? [];
-    return entries.some((entry) => isOurHookEntry(entry));
+    return entries.some((entry) => hookEntryMatchesCurrentInstall(entry));
   });
 }
 
@@ -164,8 +176,10 @@ function printStatus(): void {
     const config = readHooksConfig(hooksPath);
     for (const eventName of HOOK_EVENTS) {
       const entries = config.hooks[eventName] ?? [];
-      const installed = entries.some((entry) => isOurHookEntry(entry));
-      console.log(`  ${eventName}: ${installed ? 'installed' : 'not installed'}`);
+      const installed = entries.some((entry) => hookEntryMatchesCurrentInstall(entry));
+      const stale = entries.filter((entry) => isOurHookEntry(entry) && !hookEntryMatchesCurrentInstall(entry)).length;
+      const suffix = stale > 0 ? ` (${stale} stale)` : '';
+      console.log(`  ${eventName}: ${installed ? 'installed' : 'not installed'}${suffix}`);
     }
   }
 }
@@ -194,9 +208,14 @@ function runDoctor(): number {
   } else {
     const config = readHooksConfig(hooksPath);
     for (const eventName of HOOK_EVENTS) {
-      const installed = (config.hooks[eventName] ?? []).some((entry) => isOurHookEntry(entry));
+      const entries = config.hooks[eventName] ?? [];
+      const installed = entries.some((entry) => hookEntryMatchesCurrentInstall(entry));
       if (!installed) {
         failures.push(`hook not registered: ${eventName}`);
+      }
+      const stale = entries.filter((entry) => isOurHookEntry(entry) && !hookEntryMatchesCurrentInstall(entry)).length;
+      if (stale > 0) {
+        failures.push(`stale hook entries for ${eventName}: ${stale} (run cursor-cli-wakatime install)`);
       }
     }
   }
@@ -275,7 +294,7 @@ Usage:
 function main(): void {
   const command = process.argv[2] ?? 'help';
 
-  if (command !== 'uninstall' && command !== 'help' && command !== '--help' && command !== '-h') {
+  if (command !== 'install' && command !== 'uninstall' && command !== 'help' && command !== '--help' && command !== '-h') {
     ensureHooksInstalled();
   }
 
