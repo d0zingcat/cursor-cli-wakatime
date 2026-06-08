@@ -100,18 +100,13 @@ pnpm add -g --allow-build=cursor-cli-wakatime github:d0zingcat/cursor-cli-wakati
 
 `dist/` is committed in git, so install does not need a local build step.
 
-Global install automatically registers hooks in `~/.cursor/hooks.json` via `postinstall`. To install hooks manually (or after a local/non-global install), run:
+After global install, run any CLI command once to register hooks (for example `cursor-cli-wakatime status`). npm skips `postinstall` for git global installs ([npm/cli#6984](https://github.com/npm/cli/issues/6984)).
+
+To install hooks explicitly:
 
 ```bash
 cursor-cli-wakatime install
 ```
-
-Environment variables:
-
-| Variable | Effect |
-|----------|--------|
-| `CURSOR_CLI_WAKATIME_AUTO_INSTALL=1` | Auto-install hooks on any `npm install` (not only `-g`) |
-| `CURSOR_CLI_WAKATIME_SKIP_AUTO_INSTALL=1` | Skip auto install/uninstall |
 
 | Command | Description |
 |---------|-------------|

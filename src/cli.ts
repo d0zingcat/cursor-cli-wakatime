@@ -108,12 +108,32 @@ function getHooksPath(): string {
   return path.join(getCursorHomeDirectory(), 'hooks.json');
 }
 
+function hooksAreInstalled(): boolean {
+  const hooksPath = getHooksPath();
+  if (!fs.existsSync(hooksPath)) {
+    return false;
+  }
+
+  const config = readHooksConfig(hooksPath);
+  return HOOK_EVENTS.every((eventName) => {
+    const entries = config.hooks[eventName] ?? [];
+    return entries.some((entry) => isOurHookEntry(entry));
+  });
+}
+
 function installHooks(): void {
   const hooksPath = getHooksPath();
   const config = addOurHooks(readHooksConfig(hooksPath));
   writeHooksConfig(hooksPath, config);
   console.log(`Installed ${HOOK_MARKER} hooks into ${hooksPath}`);
   console.log(`Hook command: ${getHookCommand()}`);
+}
+
+function ensureHooksInstalled(): void {
+  if (hooksAreInstalled()) {
+    return;
+  }
+  installHooks();
 }
 
 function uninstallHooks(): void {
@@ -254,6 +274,10 @@ Usage:
 
 function main(): void {
   const command = process.argv[2] ?? 'help';
+
+  if (command !== 'uninstall' && command !== 'help' && command !== '--help' && command !== '-h') {
+    ensureHooksInstalled();
+  }
 
   switch (command) {
     case 'install':
