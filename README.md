@@ -92,6 +92,14 @@ For manual hook installation without the plugin marketplace:
 npm install -g github:d0zingcat/cursor-cli-wakatime
 ```
 
+With **pnpm**, allow git `prepare`/`postinstall` scripts first:
+
+```bash
+pnpm add -g --allow-build=cursor-cli-wakatime github:d0zingcat/cursor-cli-wakatime
+```
+
+`dist/` is committed in git, so install does not need a local build step.
+
 Global install automatically registers hooks in `~/.cursor/hooks.json` via `postinstall`. To install hooks manually (or after a local/non-global install), run:
 
 ```bash
