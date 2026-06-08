@@ -23,7 +23,7 @@ In **Cursor Agent** chat (IDE or terminal), run:
 
 ```text
 /plugin marketplace add https://github.com/d0zingcat/cursor-cli-wakatime.git
-/plugin install cursor-cli-wakatime@wakatime
+/plugin install cursor-cli-wakatime@d0zingcat-wakatime
 ```
 
 Then add your [API key](https://wakatime.com/api-key) to `~/.wakatime.cfg` if you have not already.
